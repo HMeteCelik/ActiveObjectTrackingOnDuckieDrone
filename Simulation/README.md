@@ -27,22 +27,6 @@ This module implements autonomous vehicle tracking in a simulated environment us
 - ArduPilot SITL
 - MAVROS
 
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/drone-tracking-project.git
-cd drone-tracking-project/simulation
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Build workspace if needed
-catkin_make
-source devel/setup.bash
-```
-
 ### Usage 🚁
 
 
@@ -80,6 +64,8 @@ python Simulation/scripts/test.py
 │   │   └── simulation_world.world
 │   └── scripts/
 │       ├── test.py
+│       ├── track.py
+│       └── best.pt                    # Trained YOLOv5 model weights file
 │       ├── track.py
 │       └── best.pt   # Trained YOLOv5 model weights file
 
