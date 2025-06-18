@@ -21,6 +21,7 @@ Using YOLOv5s in ROS-Gazebo environment
 Using Duckiedrone DD21 platform with AprilTag markers
 
 **Code and documentation available in the `DuckieDrone/` folder**
+
 ---
 
 ## 🚁 System Architecture
