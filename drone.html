@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Active Object Tracking on DuckieDrone</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .container {
+            height: 2000vh;
+            position: relative;
+        }
+
+        .drone-container {
+            position: fixed;
+            top: 80vh;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: all 0.1s ease-out;
+            z-index: 10;
+        }
+
+        .drone {
+            width: 120px;
+            height: 80px;
+            position: relative;
+            animation: hover 3s ease-in-out infinite;
+        }
+
+        .drone-body {
+            width: 60px;
+            height: 20px;
+            background: linear-gradient(45deg, #333, #666);
+            border-radius: 10px;
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            box-shadow: 0 4px 15px rgba(0, 255, 255, 0.3);
+        }
+
+        .drone-arm {
+            width: 40px;
+            height: 4px;
+            background: #444;
+            position: absolute;
+            top: 38px;
+        }
+
+        .drone-arm.left {
+            left: 0;
+            transform: rotate(-20deg);
+        }
+
+        .drone-arm.right {
+            right: 0;
+            transform: rotate(20deg);
+        }
+
+        .propeller {
+            width: 30px;
+            height: 30px;
+            position: absolute;
+            top: 25px;
+        }
+
+        .propeller.top-left {
+            left: -5px;
+        }
+
+        .propeller.top-right {
+            right: -5px;
+        }
+
+        .propeller.bottom-left {
+            left: -5px;
+            top: 35px;
+        }
+
+        .propeller.bottom-right {
+            right: -5px;
+            top: 35px;
+        }
+
+        .blade {
+            width: 25px;
+            height: 3px;
+            background: linear-gradient(90deg, #00ffff, #0080ff);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform-origin: center;
+            border-radius: 2px;
+            animation: spin 0.1s linear infinite;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        .blade:nth-child(1) {
+            transform: translate(-50%, -50%) rotate(0deg);
+        }
+
+        .blade:nth-child(2) {
+            transform: translate(-50%, -50%) rotate(90deg);
+        }
+
+        .lights {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            animation: blink 1.5s infinite;
+        }
+
+        .light-front {
+            background: #ff0000;
+            top: 28px;
+            left: 58px;
+        }
+
+        .light-back {
+            background: #00ff00;
+            top: 28px;
+            left: 38px;
+        }
+
+        .text-container {
+            position: fixed;
+            bottom: 30vh;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            z-index: 5;
+        }
+
+        .text-container.visible {
+            opacity: 1;
+        }
+
+        .main-text {
+            font-size: 4rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, #00ffff, #0080ff, #ff00ff);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradient-shift 3s ease-in-out infinite;
+            text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+            letter-spacing: 0.1em;
+        }
+
+        .sub-text {
+            font-size: 1.2rem;
+            color: #888;
+            margin-top: 20px;
+            animation: fade-in-up 1s ease 0.5s both;
+        }
+
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .star {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 2s infinite;
+        }
+
+        .ground {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 20vh;
+            background: linear-gradient(to top, #0a0a0a, transparent);
+            z-index: 2;
+        }
+
+        .content-sections {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+            z-index: 3;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+            padding-top: 100px;
+            padding-bottom: 50px;
+        }
+
+        .content-sections.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .content-sections::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .content-sections::-webkit-scrollbar-track {
+            background: rgba(0, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .content-sections::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        .content-sections::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 255, 0.5);
+        }
+
+        .section {
+            max-width: 1200px;
+            padding: 40px 60px;
+            text-align: center;
+            display: none;
+            width: 100%;
+            margin: 0 auto;
+            min-height: calc(100vh - 150px);
+            box-sizing: border-box;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .section-title {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #00ffff;
+            margin-bottom: 40px;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            background: linear-gradient(45deg, #00ffff, #0080ff, #ff00ff);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradient-shift 3s ease-in-out infinite;
+        }
+
+        .section-content {
+            text-align: justify;
+            line-height: 1.8;
+            font-size: 1.2rem;
+            color: #e0e0e0;
+            text-indent: 2em;
+        }
+
+        .navigation {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 15;
+            display: flex;
+            gap: 10px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .navigation.visible {
+            opacity: 1;
+        }
+
+        .nav-btn {
+            padding: 10px 15px;
+            background: rgba(0, 255, 255, 0.1);
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            white-space: nowrap;
+        }
+
+        .nav-btn:hover, .nav-btn.active {
+            background: rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .methodology-list {
+            text-align: left;
+            margin: 30px 0;
+        }
+
+        .methodology-step {
+            background: rgba(0, 255, 255, 0.05);
+            border-left: 4px solid #00ffff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 10px 10px 0;
+            backdrop-filter: blur(5px);
+        }
+
+        .methodology-step h3 {
+            color: #00ffff;
+            margin-bottom: 10px;
+            font-size: 1.3rem;
+        }
+
+        .methodology-step p {
+            text-indent: 0;
+            line-height: 1.6;
+        }
+
+        .video-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin: 40px 0;
+            text-align: center;
+        }
+
+        .video-display-area {
+            background: rgba(0, 255, 255, 0.05);
+            border: 2px solid #00ffff;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            min-height: 350px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .video-title {
+            color: #00ffff;
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .video-player {
+            width: 100%;
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.3);
+        }
+
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+            text-align: center;
+        }
+
+        .team-member, .acknowledgment {
+            background: rgba(0, 255, 255, 0.05);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 30px 20px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .acknowledgment {
+            grid-column: 1 / -1;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .team-member:hover, .acknowledgment:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 255, 255, 0.2);
+            border-color: #00ffff;
+        }
+
+        .team-member::before, .acknowledgment::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .team-member:hover::before, .acknowledgment:hover::before {
+            left: 100%;
+        }
+
+        .member-avatar, .acknowledgment-icon {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #00ffff, #0080ff, #ff00ff);
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .acknowledgment-icon {
+            background: linear-gradient(45deg, #ffaa00, #ff6600, #ff0066);
+        }
+
+        .acknowledgment-icon::before {
+            content: '🏆';
+            color: white;
+            font-size: 3rem;
+        }
+
+        .member-name {
+            color: #00ffff;
+            font-size: 1.4rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .member-role {
+            color: #888;
+            font-size: 1rem;
+            margin-bottom: 15px;
+        }
+
+        .member-description {
+            color: #e0e0e0;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            text-align: left;
+        }
+
+        .member-github {
+            display: inline-block;
+            margin-top: 15px;
+            color: #00ffff;
+            text-decoration: none;
+            font-size: 0.9rem;
+            padding: 8px 16px;
+            border: 1px solid #00ffff;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .member-github:hover {
+            background: rgba(0, 255, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+        }
+
+        /* Poster and Report Section Styles */
+        .document-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+            margin: 40px 0;
+            text-align: center;
+        }
+
+        .document-display-area {
+            background: rgba(255, 165, 0, 0.05);
+            border: 2px solid #ffaa00;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .document-title {
+            color: #ffaa00;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .document-preview {
+            max-width: 100%;
+            max-height: 600px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(255, 165, 0, 0.3);
+            margin: 0 auto 20px;
+        }
+
+        .pdf-embed {
+            width: 100%;
+            height: 600px;
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(255, 165, 0, 0.3);
+        }
+
+        .download-link {
+            display: inline-block;
+            margin-top: 15px;
+            color: #ffaa00;
+            text-decoration: none;
+            font-size: 1rem;
+            padding: 12px 25px;
+            border: 2px solid #ffaa00;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            background: rgba(255, 165, 0, 0.1);
+            font-weight: bold;
+        }
+
+        .download-link:hover {
+            background: rgba(255, 165, 0, 0.2);
+            box-shadow: 0 0 20px rgba(255, 165, 0, 0.3);
+            transform: translateY(-2px);
+        }
+
+        @keyframes hover {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes spin {
+            from { transform: translate(-50%, -50%) rotate(0deg); }
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes fade-in-up {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .scroll-indicator {
+            position: fixed;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            animation: bounce 2s infinite;
+            z-index: 10;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
+            40% { transform: translateX(-50%) translateY(-10px); }
+            60% { transform: translateX(-50%) translateY(-5px); }
+        }
+
+        @media (max-width: 768px) {
+            .main-text {
+                font-size: 2rem;
+            }
+            
+            .sub-text {
+                font-size: 1rem;
+            }
+            
+            .drone {
+                width: 60px;
+                height: 45px;
+            }
+            
+            .drone-body {
+                width: 30px;
+                height: 12px;
+                left: 15px;
+                top: 16px;
+            }
+
+            .content-sections {
+                padding: 10px;
+                padding-top: 100px;
+                padding-bottom: 30px;
+            }
+
+            .section {
+                padding: 20px 15px;
+            }
+
+            .section-title {
+                font-size: 1.8rem;
+                margin-bottom: 20px;
+            }
+
+            .section-content {
+                font-size: 0.9rem;
+                line-height: 1.5;
+                text-indent: 1em;
+            }
+
+            .navigation {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                transform: none;
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: 8px;
+                width: calc(100% - 20px);
+            }
+
+            .nav-btn {
+                padding: 8px 12px;
+                font-size: 0.7rem;
+                flex: 1;
+                min-width: 100px;
+            }
+
+            .video-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .video-display-area, .document-display-area {
+                min-height: 250px;
+                padding: 15px 10px;
+            }
+
+            .team-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .member-avatar, .acknowledgment-icon {
+                width: 80px;
+                height: 80px;
+                font-size: 2rem;
+            }
+
+            .member-name {
+                font-size: 1.2rem;
+            }
+
+            .member-description {
+                font-size: 0.8rem;
+            }
+
+            .methodology-step {
+                padding: 15px;
+                margin: 15px 0;
+            }
+
+            .methodology-step h3 {
+                font-size: 1.1rem;
+            }
+
+            .scroll-indicator {
+                bottom: 30px;
+                font-size: 0.8rem;
+            }
+
+            .document-title {
+                font-size: 1.2rem;
+            }
+
+            .pdf-embed {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="stars" id="stars"></div>
+        
+        <div class="navigation" id="navigation">
+            <div class="nav-btn active" onclick="showSection('introduction')">Introduction</div>
+            <div class="nav-btn" onclick="showSection('methodology')">Methodology</div>
+            <div class="nav-btn" onclick="showSection('videos')">Project Videos</div>
+            <div class="nav-btn" onclick="showSection('poster')">Poster</div>
+            <div class="nav-btn" onclick="showSection('report')">Report</div>
+            <div class="nav-btn" onclick="showSection('team')">Team Members</div>
+        </div>
+        
+        <div class="scroll-indicator" id="scrollIndicator">
+            ↓ Scroll to launch
+        </div>
+        
+        <div class="drone-container" id="droneContainer">
+            <div class="drone">
+                <div class="drone-body"></div>
+                <div class="drone-arm left"></div>
+                <div class="drone-arm right"></div>
+                
+                <div class="propeller top-left">
+                    <div class="blade"></div>
+                    <div class="blade"></div>
+                </div>
+                <div class="propeller top-right">
+                    <div class="blade"></div>
+                    <div class="blade"></div>
+                </div>
+                <div class="propeller bottom-left">
+                    <div class="blade"></div>
+                    <div class="blade"></div>
+                </div>
+                <div class="propeller bottom-right">
+                    <div class="blade"></div>
+                    <div class="blade"></div>
+                </div>
+                
+                <div class="lights light-front"></div>
+                <div class="lights light-back"></div>
+            </div>
+        </div>
+
+        <div class="text-container" id="textContainer">
+            <div class="main-text">Active Object Tracking on DuckieDrone</div>
+            <div class="sub-text">A Comprehensive Two-Part Approach</div>
+        </div>
+
+        <div class="content-sections" id="contentSections">
+            <div class="section active" id="introduction">
+                <div class="section-title">Introduction</div>
+                <div class="section-content">
+                    This project explores two main ideas within the field of autonomous aerial tracking systems. The first objective is to enable a real Duckiedrone to perform AprilTag-based visual tracking. Using onboard RGB cameras and ROS middleware, the drone is able to detect an AprilTag marker in real time, estimate its 3D pose, and navigate accordingly. This allows the physical drone to follow a predefined target using visual feedback, laying the foundation for robust autonomous flight in controlled environments.
+
+                    The second objective focuses on a simulated drone environment, where a virtual drone is developed to perform active object tracking using YOLOv5. In this setup, a deep learning-based object detection model is used to recognize and track a moving object—such as a Duckiebot—in real time. The tracking data is then used to guide the drone's movements dynamically, simulating real-world conditions and validating the performance of machine learning-based tracking algorithms.
+
+                    By combining these two approaches, the project aims to demonstrate both traditional marker-based tracking with physical hardware and deep learning-driven tracking in simulation. The overall goal is to advance the development of autonomous drones capable of following dynamic targets in various scenarios, contributing to fields such as intelligent robotics, surveillance, and human–robot interaction.
+                </div>
+            </div>
+            
+            <div class="section" id="methodology">
+                <div class="section-title">Solution Methodology</div>
+                <div class="section-content">
+                    <div class="methodology-list">
+                        <div class="methodology-step">
+                            <h3>AprilTag-Based Physical Tracking</h3>
+                            <p>In the physical setup, the Duckiedrone is equipped with a Raspberry Pi 3, an RGB camera, and essential flight control components. ROS is used as the middleware to manage communication between sensors, flight controller, and processing nodes. AprilTag markers are placed on the target (e.g., a Duckiebot), and the drone uses the apriltag_ros package to detect and estimate the 3D pose of the tag in real time. A PID-based control system adjusts the drone's position and orientation to keep the tag in view and follow it smoothly. The system is tested in controlled indoor environments to evaluate tracking precision, stability, and responsiveness.</p>
+                        </div>
+
+                        <div class="methodology-step">
+                            <h3>Simulated Drone – YOLOv5-Based Active Object Tracking</h3>
+                            <p>A virtual drone is created using Gazebo and ROS to simulate realistic flight and camera behavior. The YOLOv5n model, optimized for lightweight performance, is trained to detect the target object (such as a Duckiebot) from simulated camera input. This detection output is processed to extract the object's location in the image frame, which is then used to control the drone's movement dynamically through velocity commands. The simulation allows testing under different motion patterns, lighting conditions, and levels of occlusion. This environment provides a safe and flexible platform to develop and validate deep learning-based tracking algorithms before real-world deployment.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section" id="videos">
+                <div class="section-title">Project Videos</div>
+                <div class="section-content">
+                    <p style="text-align: center; text-indent: 0; margin-bottom: 30px; color: #e0e0e0;">Project demonstration videos showcasing the AprilTag tracking and YOLOv5 simulation systems.</p>
+                    
+                    <div class="video-container">
+                        <div class="video-display-area">
+                            <div class="video-title">AprilTag Tracking on DD21 DuckieDrone</div>
+                            <video class="video-player" controls>
+                                <source src="realDrone.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+
+                        <div class="video-display-area">
+                            <div class="video-title">YOLOv5s Tracking Simulation Demo</div>
+                            <video class="video-player" controls>
+                                <source src="simulation.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section" id="poster">
+                <div class="section-title">Project Poster</div>
+                <div class="section-content">
+                    <p style="text-align: center; text-indent: 0; margin-bottom: 30px; color: #e0e0e0;">Official project poster summarizing the research objectives, methodology, and key findings.</p>
+                    
+                    <div class="document-container">
+                        <div class="document-display-area">
+                            <div class="document-title">Active Object Tracking on DuckieDrone Poster</div>
+                            <embed class="pdf-embed" src="ActiveObjectTrackingonDuckieDrone.pdf" type="application/pdf">
+                            <a class="download-link" href="ActiveObjectTrackingonDuckieDrone.pdf" download="ActiveObjectTrackingonDuckieDrone.pdf">📥 Download Poster</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section" id="report">
+                <div class="section-title">Final Report</div>
+                <div class="section-content">
+                    <p style="text-align: center; text-indent: 0; margin-bottom: 30px; color: #e0e0e0;">Comprehensive final report detailing the complete project development, implementation, and results.</p>
+                    
+                    <div class="document-container">
+                        <div class="document-display-area">
+                            <div class="document-title">Active Object Tracking on DuckieDrone Report</div>
+                            <embed class="pdf-embed" src="Project_Report.pdf" type="application/pdf">
+                            <a class="download-link" href="Project_Report.pdf" download="BBM_AIN_Final_Report.pdf">📥 Download Report</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section" id="team">
+                <div class="section-title">Team Members</div>
+                <div class="section-content">
+                    <div class="team-grid" id="teamGrid">
+                        <div class="team-member">
+                            <div class="member-avatar">
+                                <img src="ozgur_old.png" alt="Advisor Photo" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                            </div>
+                            <div class="member-name">Özgür Erkent</div>
+                            <div class="member-role">Project Advisor</div>
+                            <div class="member-description">
+                                Provides academic guidance and technical oversight for the autonomous drone tracking project. Expert in robotics, computer vision, and autonomous systems, offering strategic direction and ensuring research quality standards throughout the development process.
+                            </div>
+                        </div>
+                        
+                        <div class="team-member">
+                            <div class="member-avatar">
+                                <img src="1706709223474.png" alt="Student Photo" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                            </div>
+                            <div class="member-name">Abdullah Enes Yaman</div>
+                            <div class="member-role">AI Engineering Student</div>
+                            <div class="member-description">Student ID: 2200765012</div>
+                            <a href="https://github.com/Enes-Yaman" target="_blank" class="member-github">🔗 GitHub Profile</a>
+                        </div>
+                        
+                        <div class="team-member">
+                            <div class="member-avatar">
+                                <img src="WhatsApp Image 2025-06-18 at 14.36.44.jpeg" alt="Student Photo" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                            </div>
+                            <div class="member-name">Hikmet Mete Çelik</div>
+                            <div class="member-role">AI Engineering Student</div>
+                            <div class="member-description">Student ID: 2210765019</div>
+                            <a href="https://github.com/HMeteCelik" target="_blank" class="member-github">🔗 GitHub Profile</a>
+                        </div>
+                        
+                        <div class="acknowledgment">
+                            <div class="member-name">Acknowledgement</div>
+                            <div class="member-role">Special Thanks</div>
+                            <div class="member-description">
+                                The drones were provided by the project "Teaching SLAM with Autonomous Robots for Rescue Tasks" funded by Bridge to Turkey Fund, with sponsorship from NVIDIA.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSection = 'introduction';
+
+        // Create stars
+        function createStars() {
+            const starsContainer = document.getElementById('stars');
+            for (let i = 0; i < 100; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() * 2 + 's';
+                starsContainer.appendChild(star);
+            }
+        }
+
+        // Show section
+        function showSection(sectionId) {
+            // Hide all sections
+            const sections = document.querySelectorAll('.section');
+            sections.forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionId).classList.add('active');
+            
+            // Update navigation buttons
+            const navBtns = document.querySelectorAll('.nav-btn');
+            navBtns.forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            currentSection = sectionId;
+        }
+
+        // Handle scroll animation
+        function handleScroll() {
+            const scrolled = window.pageYOffset;
+            const rate = scrolled * -0.5;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            const scrollProgress = scrolled / maxScroll;
+            
+            const droneContainer = document.getElementById('droneContainer');
+            const textContainer = document.getElementById('textContainer');
+            const contentSections = document.getElementById('contentSections');
+            const scrollIndicator = document.getElementById('scrollIndicator');
+            const navigation = document.getElementById('navigation');
+            
+            // Move drone up as user scrolls
+            droneContainer.style.top = (80 - scrollProgress * 120) + 'vh';
+            
+            // Add rotation and tilt effects during flight
+            const rotation = scrollProgress * 15;
+            const tilt = Math.sin(scrollProgress * Math.PI * 2) * 5;
+            droneContainer.style.transform = `translateX(-50%) rotate(${rotation}deg) rotateX(${tilt}deg)`;
+            
+            // Show text when drone has flown up significantly
+            if (scrollProgress > 0.1 && scrollProgress < 0.3) {
+                textContainer.classList.add('visible');
+                scrollIndicator.style.opacity = '0';
+            } else {
+                textContainer.classList.remove('visible');
+                if (scrollProgress <= 0.05) {
+                    scrollIndicator.style.opacity = '0.7';
+                } else {
+                    scrollIndicator.style.opacity = '0';
+                }
+            }
+            
+            // Show content sections and navigation when scrolled further
+            if (scrollProgress > 0.3) {
+                contentSections.classList.add('visible');
+                navigation.classList.add('visible');
+                droneContainer.style.opacity = '0.3';
+            } else {
+                contentSections.classList.remove('visible');
+                navigation.classList.remove('visible');
+                droneContainer.style.opacity = '1';
+            }
+            
+            // Add scale effect to drone during flight
+            const scale = 1 + scrollProgress * 0.5;
+            droneContainer.querySelector('.drone').style.transform = `scale(${scale})`;
+        }
+
+        // Initialize
+        createStars();
+        window.addEventListener('scroll', handleScroll);
+        
+        // Smooth scrolling
+        document.documentElement.style.scrollBehavior = 'smooth';
+    </script>
+</body>
+</html>
