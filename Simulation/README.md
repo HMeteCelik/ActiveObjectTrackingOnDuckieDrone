@@ -58,15 +58,5 @@ rosrun <package> track.py
 ```bash
 python Simulation/scripts/test.py
 ```
-### 📁 Project Structure
-├── Simulation/
-│   ├── world/
-│   │   └── simulation_world.world
-│   └── scripts/
-│       ├── test.py
-│       ├── track.py
-│       └── best.pt                    # Trained YOLOv5 model weights file
-│       ├── track.py
-│       └── best.pt   # Trained YOLOv5 model weights file
 
 
